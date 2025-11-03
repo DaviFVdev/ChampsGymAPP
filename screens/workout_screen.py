@@ -33,7 +33,7 @@ def WorkoutScreen(page: ft.Page, workout_data: dict):
     # --- Layout da Tela ---
     return ft.View(
         route=page.route, # Usa a rota atual para a view
-        controls=[
+        controls=[        # <--- A correção é aqui
             ft.AppBar(
                 leading=ft.IconButton("arrow_back", on_click=go_back),
                 title=ft.Text(workout_data.get("title", "Treino"))
