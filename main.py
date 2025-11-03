@@ -2,6 +2,7 @@ import flet as ft
 from database import init_db
 from screens.login_screen import LoginScreen
 from screens.register_screen import RegisterScreen
+from screens.home_screen import HomeScreen
 
 def main(page: ft.Page):
     """
@@ -26,6 +27,12 @@ def main(page: ft.Page):
             page.views.append(LoginScreen(page))
         elif page.route == "/register":
             page.views.append(RegisterScreen(page))
+        elif page.route == "/home":
+            # Proteção de rota: só permite acesso se o user_id estiver na sessão
+            if not page.session.get("user_id"):
+                page.go("/")
+            else:
+                page.views.append(HomeScreen(page))
         page.update()
 
     def view_pop(view):
