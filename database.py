@@ -130,3 +130,40 @@ def add_user(username, email, password):
 # Para testar a criação do banco de dados ao executar este arquivo diretamente
 if __name__ == '__main__':
     init_db()
+
+def verify_user(identifier, password):
+    """
+    Verifica as credenciais do usuário.
+
+    Retorna o user_id se a autenticação for bem-sucedida, None caso contrário.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Hash da senha fornecida para comparação
+    password_hash = hashlib.sha256(password.encode()).hexdigest()
+
+    cursor.execute(
+        "SELECT user_id, password_hash FROM users WHERE username = ? OR email = ?",
+        (identifier, identifier)
+    )
+    user = cursor.fetchone()
+    conn.close()
+
+    if user and user['password_hash'] == password_hash:
+        return user['user_id']
+
+    return None
+
+def get_user_by_id(user_id):
+    """
+    Busca um usuário pelo seu ID.
+
+    Retorna um dicionário com os dados do usuário ou None se não encontrado.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+    user = cursor.fetchone()
+    conn.close()
+    return user
