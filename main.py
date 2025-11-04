@@ -1,10 +1,9 @@
 import flet as ft
-from database import init_db
+from database import init_db, get_workout_by_route
 from screens.login_screen import LoginScreen
 from screens.register_screen import RegisterScreen
 from screens.home_screen import HomeScreen
 from screens.workout_screen import WorkoutScreen
-from data.workouts import WORKOUT_DATA
 
 def main(page: ft.Page):
     """
@@ -36,12 +35,14 @@ def main(page: ft.Page):
             else:
                 page.views.append(HomeScreen(page))
         # Rota dinâmica para as telas de treino
-        elif page.route in WORKOUT_DATA:
-            if not page.session.get("user_id"):
-                page.go("/")
-            else:
-                workout_info = WORKOUT_DATA[page.route]
-                page.views.append(WorkoutScreen(page, workout_info))
+        else:
+            workout_info = get_workout_by_route(page.route)
+            if workout_info:
+                if not page.session.get("user_id"):
+                    page.go("/")
+                else:
+                    page.views.append(WorkoutScreen(page, workout_info))
+            # (Opcional: adicionar uma tela de "Não encontrado" aqui)
         page.update()
 
     def view_pop(view):
