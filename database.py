@@ -15,9 +15,6 @@ def init_db():
     Inicializa o banco de dados, criando as tabelas e os papéis (roles) iniciais
     se ainda não existirem.
     """
-    if os.path.exists(DB_FILE):
-        return
-
     conn = get_db_connection()
     cursor = conn.cursor()
 
