@@ -60,21 +60,34 @@ def init_db():
     )
     """)
 
+    # Tabela mestre de todos os exercícios disponíveis
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS workouts (
-        workout_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        route TEXT NOT NULL UNIQUE,
-        title TEXT NOT NULL
+    CREATE TABLE IF NOT EXISTS master_exercises (
+        master_exercise_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        muscle_group TEXT NOT NULL
     )
     """)
 
+    # Fichas de treino personalizadas para cada usuário
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS exercises (
-        exercise_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        workout_id INTEGER NOT NULL,
-        name TEXT NOT NULL,
+    CREATE TABLE IF NOT EXISTS user_workouts (
+        user_workout_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(user_id)
+    )
+    """)
+
+    # Exercícios específicos dentro da ficha de um usuário
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS user_exercises (
+        user_exercise_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_workout_id INTEGER NOT NULL,
+        master_exercise_id INTEGER NOT NULL,
         series TEXT NOT NULL,
-        FOREIGN KEY (workout_id) REFERENCES workouts(workout_id)
+        FOREIGN KEY (user_workout_id) REFERENCES user_workouts(user_workout_id),
+        FOREIGN KEY (master_exercise_id) REFERENCES master_exercises(master_exercise_id)
     )
     """)
 
@@ -86,63 +99,70 @@ def init_db():
         # Papéis já existem, ignorar o erro
         pass
 
-    # --- Pré-popular os dados de treino ---
-    workout_data = {
-        "/treino-a": {
-            "title": "Treino A: Peito e Tríceps",
-            "exercises": [
-                ("Supino Reto (Barra)", "4x8-10"),
-                ("Supino Inclinado (Halteres)", "3x10-12"),
-                ("Paralelas (Dips) ou Supino Declinado", "3x10-12"),
-                ("Crucifixo (Polia ou Halteres)", "3x12-15"),
-                ("Tríceps Testa (Polia ou Barra W)", "4x10-12"),
-                ("Tríceps Corda (Polia)", "3x12-15"),
-            ]
-        },
-        "/treino-b": {
-            "title": "Treino B: Quadríceps",
-            "exercises": [
-                ("Agachamento Livre", "4x8-10"),
-                ("Leg Press 45°", "3x10-12"),
-                ("Afundo (Passada) ou Búlgaro", "3x10-12 (por perna)"),
-                ("Cadeira Extensora", "3x15"),
-                ("Panturrilha em Pé (Gêmeos)", "4x15-20"),
-                ("Panturrilha Sentado (Sóleo)", "3x15-20"),
-            ]
-        },
-        "/treino-c": {
-            "title": "Treino C: Costas e Bíceps",
-            "exercises": [
-                ("Barra Fixa ou Puxada Alta (Frontal)", "4x10-12 (ou falha)"),
-                ("Remada Curvada (Barra) ou Cavalinho", "4x8-10"),
-                ("Remada Unilateral (Serrote)", "3x10-12"),
-                ("Pulldown (Braços Estendidos)", "3x12-15"),
-                ("Rosca Direta (Barra W)", "4x10-12"),
-                ("Rosca Alternada (Halteres)", "3x10-12"),
-            ]
-        },
-        "/treino-d": {
-            "title": "Treino D: Ombro e Posterior",
-            "exercises": [
-                ("Desenvolvimento (Halteres ou Barra)", "4x8-10"),
-                ("Elevação Lateral (Halteres ou Polia)", "4x12-15"),
-                ("Crucifixo Invertido (Halteres ou Peck Deck)", "3x12-15"),
-                ("Elevação Frontal (Halteres)", "3x10-12"),
-                ("Stiff (Romeno) (Barra ou Halteres)", "4x10-12"),
-                ("Cadeira Flexora (Deitado ou Sentado)", "3x12-15"),
-            ]
-        }
-    }
-
+    # --- Popular a biblioteca de exercícios (master_exercises) ---
+    master_exercise_list = [
+        # Peito
+        ('Supino Reto (Barra)', 'Peito'),
+        ('Supino Reto (Halteres)', 'Peito'),
+        ('Supino Inclinado (Barra)', 'Peito'),
+        ('Supino Inclinado (Halteres)', 'Peito'),
+        ('Supino Declinado (Barra)', 'Peito'),
+        ('Crucifixo (Halteres)', 'Peito'),
+        ('Crucifixo (Polia)', 'Peito'),
+        ('Peck Deck (Máquina)', 'Peito'),
+        ('Paralelas (Dips)', 'Peito'),
+        ('Flexão', 'Peito'),
+        # Costas
+        ('Barra Fixa', 'Costas'),
+        ('Puxada Alta (Frontal)', 'Costas'),
+        ('Remada Curvada (Barra)', 'Costas'),
+        ('Remada Cavalinho', 'Costas'),
+        ('Remada Unilateral (Serrote)', 'Costas'),
+        ('Pulldown (Braços Estendidos)', 'Costas'),
+        ('Remada Sentada (Polia)', 'Costas'),
+        # Pernas (Quadríceps)
+        ('Agachamento Livre', 'Pernas'),
+        ('Leg Press 45°', 'Pernas'),
+        ('Afundo (Passada)', 'Pernas'),
+        ('Agachamento Búlgaro', 'Pernas'),
+        ('Cadeira Extensora', 'Pernas'),
+        # Pernas (Posterior e Glúteos)
+        ('Stiff (Romeno)', 'Pernas'),
+        ('Cadeira Flexora', 'Pernas'),
+        ('Mesa Flexora', 'Pernas'),
+        ('Elevação Pélvica', 'Pernas'),
+        # Panturrilhas
+        ('Panturrilha em Pé (Gêmeos)', 'Pernas'),
+        ('Panturrilha Sentado (Sóleo)', 'Pernas'),
+        # Ombros
+        ('Desenvolvimento (Halteres)', 'Ombros'),
+        ('Desenvolvimento (Barra)', 'Ombros'),
+        ('Elevação Lateral (Halteres)', 'Ombros'),
+        ('Elevação Lateral (Polia)', 'Ombros'),
+        ('Elevação Frontal (Halteres)', 'Ombros'),
+        ('Crucifixo Invertido (Halteres)', 'Ombros'),
+        ('Crucifixo Invertido (Peck Deck)', 'Ombros'),
+        ('Remada Alta', 'Ombros'),
+        # Bíceps
+        ('Rosca Direta (Barra)', 'Bíceps'),
+        ('Rosca Direta (Barra W)', 'Bíceps'),
+        ('Rosca Alternada (Halteres)', 'Bíceps'),
+        ('Rosca Scott', 'Bíceps'),
+        ('Rosca Concentrada', 'Bíceps'),
+        # Tríceps
+        ('Tríceps Testa (Polia)', 'Tríceps'),
+        ('Tríceps Testa (Barra W)', 'Tríceps'),
+        ('Tríceps Corda (Polia)', 'Tríceps'),
+        ('Mergulho no Banco', 'Tríceps'),
+        ('Tríceps Francês (Halter)', 'Tríceps'),
+        # Abdômen
+        ('Abdominal Supra', 'Abdômen'),
+        ('Abdominal Infra (na paralela)', 'Abdômen'),
+        ('Prancha', 'Abdômen'),
+        ('Elevação de Pernas', 'Abdômen'),
+    ]
     try:
-        for route, data in workout_data.items():
-            cursor.execute("INSERT INTO workouts (route, title) VALUES (?, ?)", (route, data["title"]))
-            workout_id = cursor.lastrowid
-            for exercise in data["exercises"]:
-                cursor.execute(
-                    "INSERT INTO exercises (workout_id, name, series) VALUES (?, ?, ?)",
-                    (workout_id, exercise[0], exercise[1])
-                )
+        cursor.executemany("INSERT INTO master_exercises (name, muscle_group) VALUES (?, ?)", master_exercise_list)
     except sqlite3.IntegrityError:
         # Dados já existem
         pass
@@ -195,6 +215,9 @@ def add_user(username, email, password):
             (user_id, user_role_id)
         )
 
+        # Criar treinos padrão para o novo usuário
+        create_default_workouts_for_user(user_id, cursor)
+
         conn.commit()
         return True
     except sqlite3.Error as e:
@@ -245,29 +268,128 @@ def get_user_by_id(user_id):
     conn.close()
     return user
 
-def get_workout_by_route(route):
-    """
-    Busca uma ficha de treino e seus exercícios pelo campo 'route'.
-    """
+def create_default_workouts_for_user(user_id, cursor):
+    """Cria a cópia inicial dos treinos padrão para um novo usuário."""
+    default_workouts = {
+        "Treino A: Peito e Tríceps": [
+            ("Supino Reto (Barra)", "4x8-10"),
+            ("Supino Inclinado (Halteres)", "3x10-12"),
+            ("Paralelas (Dips)", "3x10-12"),
+            ("Crucifixo (Polia)", "3x12-15"),
+            ("Tríceps Testa (Polia)", "4x10-12"),
+            ("Tríceps Corda (Polia)", "3x12-15"),
+        ],
+        "Treino B: Quadríceps": [
+            ("Agachamento Livre", "4x8-10"),
+            ("Leg Press 45°", "3x10-12"),
+            ("Afundo (Passada)", "3x10-12 (por perna)"),
+            ("Cadeira Extensora", "3x15"),
+            ("Panturrilha em Pé (Gêmeos)", "4x15-20"),
+            ("Panturrilha Sentado (Sóleo)", "3x15-20"),
+        ],
+        "Treino C: Costas e Bíceps": [
+            ("Barra Fixa", "4x10-12 (ou falha)"),
+            ("Remada Curvada (Barra)", "4x8-10"),
+            ("Remada Unilateral (Serrote)", "3x10-12"),
+            ("Pulldown (Braços Estendidos)", "3x12-15"),
+            ("Rosca Direta (Barra W)", "4x10-12"),
+            ("Rosca Alternada (Halteres)", "3x10-12"),
+        ],
+        "Treino D: Ombro e Posterior": [
+            ("Desenvolvimento (Halteres)", "4x8-10"),
+            ("Elevação Lateral (Halteres)", "4x12-15"),
+            ("Crucifixo Invertido (Halteres)", "3x12-15"),
+            ("Elevação Frontal (Halteres)", "3x10-12"),
+            ("Stiff (Romeno)", "4x10-12"),
+            ("Cadeira Flexora", "3x12-15"),
+        ]
+    }
+
+    for title, exercises in default_workouts.items():
+        cursor.execute("INSERT INTO user_workouts (user_id, title) VALUES (?, ?)", (user_id, title))
+        user_workout_id = cursor.lastrowid
+        for ex_name, series in exercises:
+            cursor.execute("SELECT master_exercise_id FROM master_exercises WHERE name = ?", (ex_name,))
+            master_ex = cursor.fetchone()
+            if master_ex:
+                cursor.execute(
+                    "INSERT INTO user_exercises (user_workout_id, master_exercise_id, series) VALUES (?, ?, ?)",
+                    (user_workout_id, master_ex['master_exercise_id'], series)
+                )
+
+def get_user_workouts(user_id):
+    """Busca todas as fichas de treino de um usuário."""
     conn = get_db_connection()
     cursor = conn.cursor()
+    cursor.execute("SELECT user_workout_id, title FROM user_workouts WHERE user_id = ?", (user_id,))
+    workouts = cursor.fetchall()
+    conn.close()
+    return workouts
 
-    # Busca o workout principal
-    cursor.execute("SELECT * FROM workouts WHERE route = ?", (route,))
-    workout = cursor.fetchone()
+def get_user_workout_details(user_workout_id):
+    """Busca os detalhes (exercícios) de uma ficha de treino específica."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    query = """
+    SELECT ue.user_exercise_id, me.name, ue.series
+    FROM user_exercises ue
+    JOIN master_exercises me ON ue.master_exercise_id = me.master_exercise_id
+    WHERE ue.user_workout_id = ?
+    ORDER BY ue.user_exercise_id
+    """
+    cursor.execute(query, (user_workout_id,))
+    details = cursor.fetchall()
+    conn.close()
+    return details
 
-    if not workout:
-        conn.close()
-        return None
-
-    # Busca os exercícios associados
-    cursor.execute("SELECT name, series FROM exercises WHERE workout_id = ?", (workout['workout_id'],))
-    exercises = cursor.fetchall()
-
+def update_exercise_series(user_exercise_id, new_series):
+    """Atualiza as séries de um exercício específico."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE user_exercises SET series = ? WHERE user_exercise_id = ?", (new_series, user_exercise_id))
+    conn.commit()
     conn.close()
 
-    # Monta a estrutura de dados para a tela
-    return {
-        "title": workout['title'],
-        "exercises": [{"name": ex['name'], "series": ex['series']} for ex in exercises]
-    }
+def replace_exercise_in_workout(user_exercise_id, new_master_exercise_id):
+    """Substitui um exercício em uma ficha de treino."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE user_exercises SET master_exercise_id = ? WHERE user_exercise_id = ?", (new_master_exercise_id, user_exercise_id))
+    conn.commit()
+    conn.close()
+
+def add_exercise_to_workout(user_workout_id, master_exercise_id, series="3x10"):
+    """Adiciona um novo exercício a uma ficha de treino."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO user_exercises (user_workout_id, master_exercise_id, series) VALUES (?, ?, ?)",
+        (user_workout_id, master_exercise_id, series)
+    )
+    conn.commit()
+    conn.close()
+
+def remove_exercise_from_workout(user_exercise_id):
+    """Remove um exercício de uma ficha de treino."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM user_exercises WHERE user_exercise_id = ?", (user_exercise_id,))
+    conn.commit()
+    conn.close()
+
+def get_all_master_exercises():
+    """Busca todos os exercícios da biblioteca, agrupados por músculo."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT master_exercise_id, name, muscle_group FROM master_exercises ORDER BY muscle_group, name")
+    exercises = cursor.fetchall()
+    conn.close()
+
+    grouped_exercises = {}
+    for ex in exercises:
+        group = ex['muscle_group']
+        if group not in grouped_exercises:
+            grouped_exercises[group] = []
+        grouped_exercises[group].append(ex)
+
+    return grouped_exercises

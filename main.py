@@ -1,9 +1,10 @@
 import flet as ft
-from database import init_db, get_workout_by_route
+from database import init_db, get_user_workouts
 from screens.login_screen import LoginScreen
 from screens.register_screen import RegisterScreen
 from screens.home_screen import HomeScreen
 from screens.workout_screen import WorkoutScreen
+from screens.exercise_picker_screen import ExercisePickerScreen
 
 def main(page: ft.Page):
     """
@@ -34,15 +35,22 @@ def main(page: ft.Page):
                 page.go("/")
             else:
                 page.views.append(HomeScreen(page))
-        # Rota dinâmica para as telas de treino
-        else:
-            workout_info = get_workout_by_route(page.route)
-            if workout_info:
-                if not page.session.get("user_id"):
-                    page.go("/")
-                else:
-                    page.views.append(WorkoutScreen(page, workout_info))
-            # (Opcional: adicionar uma tela de "Não encontrado" aqui)
+        elif page.route == "/pick-exercise":
+            if not page.session.get("user_id"):
+                page.go("/")
+            else:
+                page.views.append(ExercisePickerScreen(page))
+        # Rota dinâmica para as telas de treino do usuário
+        elif page.route.startswith("/workout/"):
+            if not page.session.get("user_id"):
+                page.go("/")
+            else:
+                parts = page.route.split("/")
+                user_workout_id = int(parts[2])
+                # Precisamos do título, que está na home screen. Vamos buscá-lo na sessão por simplicidade.
+                workout_title = page.session.get(f"workout_title_{user_workout_id}", "Treino")
+                page.views.append(WorkoutScreen(page, user_workout_id, workout_title))
+
         page.update()
 
     def view_pop(view):
