@@ -63,11 +63,91 @@ def init_db():
     )
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS workouts (
+        workout_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        route TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL
+    )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS exercises (
+        exercise_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        workout_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        series TEXT NOT NULL,
+        FOREIGN KEY (workout_id) REFERENCES workouts(workout_id)
+    )
+    """)
+
     # --- Pré-popular a tabela de papéis (roles) ---
     try:
-        cursor.execute("INSERT INTO roles (role_name) VALUES (?), (?)", ('user', 'admin'))
+        roles_to_add = [('user',), ('admin',)]
+        cursor.executemany("INSERT INTO roles (role_name) VALUES (?)", roles_to_add)
     except sqlite3.IntegrityError:
         # Papéis já existem, ignorar o erro
+        pass
+
+    # --- Pré-popular os dados de treino ---
+    workout_data = {
+        "/treino-a": {
+            "title": "Treino A: Peito e Tríceps",
+            "exercises": [
+                ("Supino Reto (Barra)", "4x8-10"),
+                ("Supino Inclinado (Halteres)", "3x10-12"),
+                ("Paralelas (Dips) ou Supino Declinado", "3x10-12"),
+                ("Crucifixo (Polia ou Halteres)", "3x12-15"),
+                ("Tríceps Testa (Polia ou Barra W)", "4x10-12"),
+                ("Tríceps Corda (Polia)", "3x12-15"),
+            ]
+        },
+        "/treino-b": {
+            "title": "Treino B: Quadríceps",
+            "exercises": [
+                ("Agachamento Livre", "4x8-10"),
+                ("Leg Press 45°", "3x10-12"),
+                ("Afundo (Passada) ou Búlgaro", "3x10-12 (por perna)"),
+                ("Cadeira Extensora", "3x15"),
+                ("Panturrilha em Pé (Gêmeos)", "4x15-20"),
+                ("Panturrilha Sentado (Sóleo)", "3x15-20"),
+            ]
+        },
+        "/treino-c": {
+            "title": "Treino C: Costas e Bíceps",
+            "exercises": [
+                ("Barra Fixa ou Puxada Alta (Frontal)", "4x10-12 (ou falha)"),
+                ("Remada Curvada (Barra) ou Cavalinho", "4x8-10"),
+                ("Remada Unilateral (Serrote)", "3x10-12"),
+                ("Pulldown (Braços Estendidos)", "3x12-15"),
+                ("Rosca Direta (Barra W)", "4x10-12"),
+                ("Rosca Alternada (Halteres)", "3x10-12"),
+            ]
+        },
+        "/treino-d": {
+            "title": "Treino D: Ombro e Posterior",
+            "exercises": [
+                ("Desenvolvimento (Halteres ou Barra)", "4x8-10"),
+                ("Elevação Lateral (Halteres ou Polia)", "4x12-15"),
+                ("Crucifixo Invertido (Halteres ou Peck Deck)", "3x12-15"),
+                ("Elevação Frontal (Halteres)", "3x10-12"),
+                ("Stiff (Romeno) (Barra ou Halteres)", "4x10-12"),
+                ("Cadeira Flexora (Deitado ou Sentado)", "3x12-15"),
+            ]
+        }
+    }
+
+    try:
+        for route, data in workout_data.items():
+            cursor.execute("INSERT INTO workouts (route, title) VALUES (?, ?)", (route, data["title"]))
+            workout_id = cursor.lastrowid
+            for exercise in data["exercises"]:
+                cursor.execute(
+                    "INSERT INTO exercises (workout_id, name, series) VALUES (?, ?, ?)",
+                    (workout_id, exercise[0], exercise[1])
+                )
+    except sqlite3.IntegrityError:
+        # Dados já existem
         pass
 
     conn.commit()
@@ -167,3 +247,30 @@ def get_user_by_id(user_id):
     user = cursor.fetchone()
     conn.close()
     return user
+
+def get_workout_by_route(route):
+    """
+    Busca uma ficha de treino e seus exercícios pelo campo 'route'.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Busca o workout principal
+    cursor.execute("SELECT * FROM workouts WHERE route = ?", (route,))
+    workout = cursor.fetchone()
+
+    if not workout:
+        conn.close()
+        return None
+
+    # Busca os exercícios associados
+    cursor.execute("SELECT name, series FROM exercises WHERE workout_id = ?", (workout['workout_id'],))
+    exercises = cursor.fetchall()
+
+    conn.close()
+
+    # Monta a estrutura de dados para a tela
+    return {
+        "title": workout['title'],
+        "exercises": [{"name": ex['name'], "series": ex['series']} for ex in exercises]
+    }
