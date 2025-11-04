@@ -1,46 +1,96 @@
 import flet as ft
+from database import get_user_workout_details, update_exercise_series, remove_exercise_from_workout
 
-def WorkoutScreen(page: ft.Page, workout_data: dict):
+def WorkoutScreen(page: ft.Page, user_workout_id: int, workout_title: str):
     """
-    Cria uma view de treino genérica com base nos dados fornecidos.
+    Tela que exibe e permite a edição de uma ficha de treino específica do usuário.
     """
+    page.session.set("current_workout_id", user_workout_id)
+
+    def toggle_edit_mode(e):
+        """Ativa ou desativa o modo de edição."""
+        edit_mode = not page.session.get("edit_mode", False)
+        page.session.set("edit_mode", edit_mode)
+        page.go(f"/workout/{user_workout_id}") # Recarrega a página para refletir o novo modo
+
     def go_back(e):
-        """Navega de volta para a tela principal."""
+        page.session.remove("edit_mode")
         page.go("/home")
 
-    # --- Criação da Tabela de Exercícios ---
-    # (Por enquanto, as linhas estarão vazias, conforme solicitado)
-    exercise_rows = []
-    for exercise in workout_data.get("exercises", []):
-        exercise_rows.append(
-            ft.DataRow(
-                cells=[
-                    ft.DataCell(ft.Text(exercise.get("name"))),
-                    ft.DataCell(ft.Text(exercise.get("series"))),
+    def build_exercise_datatable():
+        """Constrói a DataTable com base nos exercícios do workout."""
+        exercises = get_user_workout_details(user_workout_id)
+        rows = []
+        is_editing = page.session.get("edit_mode", False)
+
+        for ex in exercises:
+            series_control = ft.Text(ex['series'])
+            if is_editing:
+                def on_series_change(e, user_exercise_id=ex['user_exercise_id']):
+                    update_exercise_series(user_exercise_id, e.control.value)
+                    e.control.border_color = "green"
+                    page.update()
+
+                series_control = ft.TextField(
+                    value=ex['series'],
+                    on_submit=lambda e, uei=ex['user_exercise_id']: on_series_change(e, uei),
+                    width=100
+                )
+
+            action_buttons = []
+            if is_editing:
+                def replace_click(e, user_exercise_id=ex['user_exercise_id']):
+                    page.session.set("exercise_to_replace", user_exercise_id)
+                    page.go("/pick-exercise")
+
+                def remove_click(e, user_exercise_id=ex['user_exercise_id']):
+                    remove_exercise_from_workout(user_exercise_id)
+                    page.go(f"/workout/{user_workout_id}") # Recarrega
+
+                action_buttons = [
+                    ft.IconButton(ft.icons.SWAP_HORIZ, on_click=lambda e, uei=ex['user_exercise_id']: replace_click(e, uei)),
+                    ft.IconButton(ft.icons.DELETE, on_click=lambda e, uei=ex['user_exercise_id']: remove_click(e, uei), icon_color="red")
                 ]
-            )
+
+            rows.append(ft.DataRow(cells=[
+                ft.DataCell(ft.Row([ft.Text(ex['name'])] + action_buttons)),
+                ft.DataCell(series_control),
+            ]))
+
+        return ft.DataTable(
+            columns=[
+                ft.DataColumn(ft.Text("Exercício")),
+                ft.DataColumn(ft.Text("Séries")),
+            ],
+            rows=rows,
+            expand=True
         )
 
-    exercise_table = ft.DataTable(
-        columns=[
-            ft.DataColumn(ft.Text("Exercício")),
-            ft.DataColumn(ft.Text("Séries")),
-        ],
-        rows=exercise_rows,
-        expand=True
-    )
-
     # --- Layout da Tela ---
+    edit_mode_active = page.session.get("edit_mode", False)
+
+    add_button = ft.ElevatedButton(
+        "Adicionar Exercício",
+        icon=ft.icons.ADD,
+        on_click=lambda e: page.go("/pick-exercise")
+    ) if edit_mode_active else ft.Container()
+
     return ft.View(
-        route=page.route, # Usa a rota atual para a view
-        controls=[
+        f"/workout/{user_workout_id}",
+        [
             ft.AppBar(
+                title=ft.Text(workout_title),
                 leading=ft.IconButton("arrow_back", on_click=go_back),
-                title=ft.Text(workout_data.get("title", "Treino"))
+                actions=[
+                    ft.IconButton(
+                        ft.icons.CHECK if edit_mode_active else ft.icons.EDIT,
+                        on_click=toggle_edit_mode,
+                        icon_color="green" if edit_mode_active else None
+                    )
+                ]
             ),
-            ft.Container(
-                content=exercise_table,
-                padding=10
-            )
-        ]
+            build_exercise_datatable(),
+            add_button
+        ],
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER
     )
