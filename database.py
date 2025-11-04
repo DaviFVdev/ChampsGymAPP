@@ -318,11 +318,27 @@ def create_default_workouts_for_user(user_id, cursor):
                 )
 
 def get_user_workouts(user_id):
-    """Busca todas as fichas de treino de um usuário."""
+    """
+    Busca todas as fichas de treino de um usuário.
+    Se o usuário não tiver treinos, cria os treinos padrão para ele.
+    """
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    # Verifica se o usuário já tem treinos
+    cursor.execute("SELECT COUNT(*) FROM user_workouts WHERE user_id = ?", (user_id,))
+    workout_count = cursor.fetchone()[0]
+
+    # Se não tiver, cria os treinos padrão
+    if workout_count == 0:
+        print(f"Nenhum treino encontrado para o user_id {user_id}. Criando treinos padrão...")
+        create_default_workouts_for_user(user_id, cursor)
+        conn.commit() # Efetiva a criação dos treinos
+
+    # Busca os treinos (agora eles devem existir)
     cursor.execute("SELECT user_workout_id, title FROM user_workouts WHERE user_id = ?", (user_id,))
     workouts = cursor.fetchall()
+
     conn.close()
     return workouts
 
