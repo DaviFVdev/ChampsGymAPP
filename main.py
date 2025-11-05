@@ -67,4 +67,4 @@ def main(page: ft.Page):
 
 if __name__ == "__main__":
     init_db()
-    ft.app(target=main)
+    ft.app(target=main, port=8550)

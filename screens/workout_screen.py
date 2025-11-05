@@ -59,8 +59,8 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int):
         page.go(f"/workout/{user_workout_id}")
 
 
-    def build_exercise_list():
-        """Constrói a lista de exercícios, com drag-and-drop se em modo de edição."""
+    def build_exercise_datatable():
+        """Constrói a DataTable com base nos exercícios do workout."""
         is_editing = page.session.get("edit_mode") or False
 
         if is_editing:
@@ -68,24 +68,7 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int):
         else:
             exercises = get_user_workout_details(user_workout_id)
 
-        exercise_widgets = []
-
-        def on_drag_accept(e):
-            src_id = int(e.src_id)
-            dest_id = int(e.control.data)
-
-            edited_data = page.session.get("workout_in_edit")
-            exercise_list = edited_data["exercises"]
-
-            src_index = next((i for i, item in enumerate(exercise_list) if item['user_exercise_id'] == src_id), -1)
-            dest_index = next((i for i, item in enumerate(exercise_list) if item['user_exercise_id'] == dest_id), -1)
-
-            if src_index != -1 and dest_index != -1:
-                moved_item = exercise_list.pop(src_index)
-                exercise_list.insert(dest_index, moved_item)
-                page.session.set("workout_in_edit", edited_data)
-                page.update()
-
+        rows = []
 
         for ex in exercises:
             series_control = ft.Text(ex['series'])
@@ -108,6 +91,18 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int):
 
             action_buttons = []
             if is_editing:
+                def move_exercise(user_exercise_id, direction):
+                    edited_data = page.session.get("workout_in_edit")
+                    exercises = edited_data["exercises"]
+                    idx = next((i for i, item in enumerate(exercises) if item['user_exercise_id'] == user_exercise_id), -1)
+
+                    if idx != -1:
+                        new_idx = idx + direction
+                        if 0 <= new_idx < len(exercises):
+                            exercises.insert(new_idx, exercises.pop(idx))
+                            page.session.set("workout_in_edit", edited_data)
+                            page.update()
+
                 def replace_click(e, user_exercise_id=ex['user_exercise_id']):
                     page.session.set("exercise_to_replace", user_exercise_id)
                     page.go("/pick-exercise")
@@ -119,34 +114,25 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int):
                     page.update()
 
                 action_buttons = [
+                    ft.IconButton("arrow_upward", on_click=lambda e, uei=ex['user_exercise_id']: move_exercise(uei, -1)),
+                    ft.IconButton("arrow_downward", on_click=lambda e, uei=ex['user_exercise_id']: move_exercise(uei, 1)),
                     ft.IconButton("swap_horiz", on_click=lambda e, uei=ex['user_exercise_id']: replace_click(e, uei)),
                     ft.IconButton("delete", on_click=lambda e, uei=ex['user_exercise_id']: remove_click(e, uei), icon_color="red"),
-                    ft.Icon("drag_handle")
                 ]
 
-            exercise_card = ft.Card(
-                content=ft.ListTile(
-                    title=ft.Text(ex['name']),
-                    subtitle=series_control,
-                    trailing=ft.Row(action_buttons)
-                )
-            )
+            rows.append(ft.DataRow(cells=[
+                ft.DataCell(ft.Row([ft.Text(ex['name'])] + action_buttons)),
+                ft.DataCell(series_control),
+            ]))
 
-            if is_editing:
-                draggable_widget = ft.Draggable(
-                    group="exercises",
-                    content=exercise_card,
-                )
-                exercise_widgets.append(ft.DragTarget(
-                    group="exercises",
-                    content=draggable_widget,
-                    on_accept=on_drag_accept,
-                    data=ex['user_exercise_id']
-                ))
-            else:
-                exercise_widgets.append(exercise_card)
-
-        return ft.Column(controls=exercise_widgets)
+        return ft.DataTable(
+            columns=[
+                ft.DataColumn(ft.Text("Exercício")),
+                ft.DataColumn(ft.Text("Séries")),
+            ],
+            rows=rows,
+            expand=True
+        )
 
     # --- Layout da Tela ---
     edit_mode_active = page.session.get("edit_mode") or False
@@ -190,7 +176,7 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int):
                 leading=ft.IconButton("arrow_back", on_click=go_back),
                 actions=app_bar_actions
             ),
-            build_exercise_list(),
+            build_exercise_datatable(),
             add_button
         ],
         horizontal_alignment=ft.CrossAxisAlignment.CENTER
