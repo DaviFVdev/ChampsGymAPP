@@ -66,6 +66,5 @@ def main(page: ft.Page):
     page.go("/")
 
 if __name__ == "__main__":
+    init_db()
     ft.app(target=main)
-    
-#comentario de teste
