@@ -47,9 +47,7 @@ def main(page: ft.Page):
             else:
                 parts = page.route.split("/")
                 user_workout_id = int(parts[2])
-                # Precisamos do título, que está na home screen. Vamos buscá-lo na sessão por simplicidade.
-                workout_title = page.session.get(f"workout_title_{user_workout_id}")
-                page.views.append(WorkoutScreen(page, user_workout_id, workout_title))
+                page.views.append(WorkoutScreen(page, user_workout_id))
 
         page.update()
 
