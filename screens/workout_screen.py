@@ -48,8 +48,8 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int):
                     page.go(f"/workout/{user_workout_id}") # Recarrega
 
                 action_buttons = [
-                    ft.IconButton(ft.icons.SWAP_HORIZ, on_click=lambda e, uei=ex['user_exercise_id']: replace_click(e, uei)),
-                    ft.IconButton(ft.icons.DELETE, on_click=lambda e, uei=ex['user_exercise_id']: remove_click(e, uei), icon_color="red")
+                    ft.IconButton("swap_horiz", on_click=lambda e, uei=ex['user_exercise_id']: replace_click(e, uei)),
+                    ft.IconButton("delete", on_click=lambda e, uei=ex['user_exercise_id']: remove_click(e, uei), icon_color="red")
                 ]
 
             rows.append(ft.DataRow(cells=[
@@ -74,7 +74,7 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int):
 
     add_button = ft.ElevatedButton(
         "Adicionar Exercício",
-        icon=ft.icons.ADD,
+        icon="add",
         on_click=lambda e: page.go("/pick-exercise")
     ) if edit_mode_active else ft.Container()
 
@@ -86,7 +86,7 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int):
                 leading=ft.IconButton("arrow_back", on_click=go_back),
                 actions=[
                     ft.IconButton(
-                        ft.icons.CHECK if edit_mode_active else ft.icons.EDIT,
+                        "check" if edit_mode_active else "edit",
                         on_click=toggle_edit_mode,
                         icon_color="green" if edit_mode_active else None
                     )

@@ -1,6 +1,7 @@
 import sqlite3
 import hashlib
 import os
+import logging
 
 DB_FILE = "champs_gym.db"
 
@@ -15,162 +16,174 @@ def init_db():
     Inicializa o banco de dados, criando as tabelas e os papéis (roles) iniciais
     se ainda não existirem.
     """
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    # --- Criação das Tabelas ---
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS users (
-        user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL UNIQUE,
-        email TEXT NOT NULL UNIQUE,
-        password_hash TEXT NOT NULL,
-        salt TEXT NOT NULL,
-        is_verified INTEGER NOT NULL DEFAULT 0,
-        is_active INTEGER NOT NULL DEFAULT 1,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS roles (
-        role_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        role_name TEXT NOT NULL UNIQUE
-    )
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS user_roles (
-        user_id INTEGER NOT NULL,
-        role_id INTEGER NOT NULL,
-        PRIMARY KEY (user_id, role_id),
-        FOREIGN KEY (user_id) REFERENCES users(user_id),
-        FOREIGN KEY (role_id) REFERENCES roles(role_id)
-    )
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS user_tokens (
-        token_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        token_hash TEXT NOT NULL UNIQUE,
-        token_type TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        expires_at DATETIME NOT NULL,
-        FOREIGN KEY (user_id) REFERENCES users(user_id)
-    )
-    """)
-
-    # Tabela mestre de todos os exercícios disponíveis
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS master_exercises (
-        master_exercise_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE,
-        muscle_group TEXT NOT NULL
-    )
-    """)
-
-    # Fichas de treino personalizadas para cada usuário
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS user_workouts (
-        user_workout_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        title TEXT NOT NULL,
-        FOREIGN KEY (user_id) REFERENCES users(user_id)
-    )
-    """)
-
-    # Exercícios específicos dentro da ficha de um usuário
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS user_exercises (
-        user_exercise_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_workout_id INTEGER NOT NULL,
-        master_exercise_id INTEGER NOT NULL,
-        series TEXT NOT NULL,
-        FOREIGN KEY (user_workout_id) REFERENCES user_workouts(user_workout_id),
-        FOREIGN KEY (master_exercise_id) REFERENCES master_exercises(master_exercise_id)
-    )
-    """)
-
-    # --- Pré-popular a tabela de papéis (roles) ---
+    conn = None
     try:
-        roles_to_add = [('user',), ('admin',)]
-        cursor.executemany("INSERT INTO roles (role_name) VALUES (?)", roles_to_add)
-    except sqlite3.IntegrityError:
-        # Papéis já existem, ignorar o erro
-        pass
+        logging.info(f"Conectando ao banco de dados: {DB_FILE}")
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        logging.info("Conexão com o banco de dados estabelecida.")
 
-    # --- Popular a biblioteca de exercícios (master_exercises) ---
-    master_exercise_list = [
-        # Peito
-        ('Supino Reto (Barra)', 'Peito'),
-        ('Supino Reto (Halteres)', 'Peito'),
-        ('Supino Inclinado (Barra)', 'Peito'),
-        ('Supino Inclinado (Halteres)', 'Peito'),
-        ('Supino Declinado (Barra)', 'Peito'),
-        ('Crucifixo (Halteres)', 'Peito'),
-        ('Crucifixo (Polia)', 'Peito'),
-        ('Peck Deck (Máquina)', 'Peito'),
-        ('Paralelas (Dips)', 'Peito'),
-        ('Flexão', 'Peito'),
-        # Costas
-        ('Barra Fixa', 'Costas'),
-        ('Puxada Alta (Frontal)', 'Costas'),
-        ('Remada Curvada (Barra)', 'Costas'),
-        ('Remada Cavalinho', 'Costas'),
-        ('Remada Unilateral (Serrote)', 'Costas'),
-        ('Pulldown (Braços Estendidos)', 'Costas'),
-        ('Remada Sentada (Polia)', 'Costas'),
-        # Pernas (Quadríceps)
-        ('Agachamento Livre', 'Pernas'),
-        ('Leg Press 45°', 'Pernas'),
-        ('Afundo (Passada)', 'Pernas'),
-        ('Agachamento Búlgaro', 'Pernas'),
-        ('Cadeira Extensora', 'Pernas'),
-        # Pernas (Posterior e Glúteos)
-        ('Stiff (Romeno)', 'Pernas'),
-        ('Cadeira Flexora', 'Pernas'),
-        ('Mesa Flexora', 'Pernas'),
-        ('Elevação Pélvica', 'Pernas'),
-        # Panturrilhas
-        ('Panturrilha em Pé (Gêmeos)', 'Pernas'),
-        ('Panturrilha Sentado (Sóleo)', 'Pernas'),
-        # Ombros
-        ('Desenvolvimento (Halteres)', 'Ombros'),
-        ('Desenvolvimento (Barra)', 'Ombros'),
-        ('Elevação Lateral (Halteres)', 'Ombros'),
-        ('Elevação Lateral (Polia)', 'Ombros'),
-        ('Elevação Frontal (Halteres)', 'Ombros'),
-        ('Crucifixo Invertido (Halteres)', 'Ombros'),
-        ('Crucifixo Invertido (Peck Deck)', 'Ombros'),
-        ('Remada Alta', 'Ombros'),
-        # Bíceps
-        ('Rosca Direta (Barra)', 'Bíceps'),
-        ('Rosca Direta (Barra W)', 'Bíceps'),
-        ('Rosca Alternada (Halteres)', 'Bíceps'),
-        ('Rosca Scott', 'Bíceps'),
-        ('Rosca Concentrada', 'Bíceps'),
-        # Tríceps
-        ('Tríceps Testa (Polia)', 'Tríceps'),
-        ('Tríceps Testa (Barra W)', 'Tríceps'),
-        ('Tríceps Corda (Polia)', 'Tríceps'),
-        ('Mergulho no Banco', 'Tríceps'),
-        ('Tríceps Francês (Halter)', 'Tríceps'),
-        # Abdômen
-        ('Abdominal Supra', 'Abdômen'),
-        ('Abdominal Infra (na paralela)', 'Abdômen'),
-        ('Prancha', 'Abdômen'),
-        ('Elevação de Pernas', 'Abdômen'),
-    ]
-    try:
-        cursor.executemany("INSERT INTO master_exercises (name, muscle_group) VALUES (?, ?)", master_exercise_list)
-    except sqlite3.IntegrityError:
-        # Dados já existem
-        pass
+        # --- Criação das Tabelas ---
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            email TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            salt TEXT NOT NULL,
+            is_verified INTEGER NOT NULL DEFAULT 0,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
 
-    conn.commit()
-    conn.close()
-    print("Banco de dados inicializado com sucesso.")
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS roles (
+            role_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            role_name TEXT NOT NULL UNIQUE
+        )
+        """)
+
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_roles (
+            user_id INTEGER NOT NULL,
+            role_id INTEGER NOT NULL,
+            PRIMARY KEY (user_id, role_id),
+            FOREIGN KEY (user_id) REFERENCES users(user_id),
+            FOREIGN KEY (role_id) REFERENCES roles(role_id)
+        )
+        """)
+
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_tokens (
+            token_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            token_hash TEXT NOT NULL UNIQUE,
+            token_type TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(user_id)
+        )
+        """)
+
+        # Tabela mestre de todos os exercícios disponíveis
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS master_exercises (
+            master_exercise_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            muscle_group TEXT NOT NULL
+        )
+        """)
+
+        # Fichas de treino personalizadas para cada usuário
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_workouts (
+            user_workout_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(user_id)
+        )
+        """)
+
+        # Exercícios específicos dentro da ficha de um usuário
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_exercises (
+            user_exercise_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_workout_id INTEGER NOT NULL,
+            master_exercise_id INTEGER NOT NULL,
+            series TEXT NOT NULL,
+            FOREIGN KEY (user_workout_id) REFERENCES user_workouts(user_workout_id),
+            FOREIGN KEY (master_exercise_id) REFERENCES master_exercises(master_exercise_id)
+        )
+        """)
+
+        # --- Pré-popular a tabela de papéis (roles) ---
+        try:
+            roles_to_add = [('user',), ('admin',)]
+            cursor.executemany("INSERT INTO roles (role_name) VALUES (?)", roles_to_add)
+        except sqlite3.IntegrityError:
+            # Papéis já existem, ignorar o erro
+            pass
+
+        # --- Popular a biblioteca de exercícios (master_exercises) ---
+        master_exercise_list = [
+            # Peito
+            ('Supino Reto (Barra)', 'Peito'),
+            ('Supino Reto (Halteres)', 'Peito'),
+            ('Supino Inclinado (Barra)', 'Peito'),
+            ('Supino Inclinado (Halteres)', 'Peito'),
+            ('Supino Declinado (Barra)', 'Peito'),
+            ('Crucifixo (Halteres)', 'Peito'),
+            ('Crucifixo (Polia)', 'Peito'),
+            ('Peck Deck (Máquina)', 'Peito'),
+            ('Paralelas (Dips)', 'Peito'),
+            ('Flexão', 'Peito'),
+            # Costas
+            ('Barra Fixa', 'Costas'),
+            ('Puxada Alta (Frontal)', 'Costas'),
+            ('Remada Curvada (Barra)', 'Costas'),
+            ('Remada Cavalinho', 'Costas'),
+            ('Remada Unilateral (Serrote)', 'Costas'),
+            ('Pulldown (Braços Estendidos)', 'Costas'),
+            ('Remada Sentada (Polia)', 'Costas'),
+            # Pernas (Quadríceps)
+            ('Agachamento Livre', 'Pernas'),
+            ('Leg Press 45°', 'Pernas'),
+            ('Afundo (Passada)', 'Pernas'),
+            ('Agachamento Búlgaro', 'Pernas'),
+            ('Cadeira Extensora', 'Pernas'),
+            # Pernas (Posterior e Glúteos)
+            ('Stiff (Romeno)', 'Pernas'),
+            ('Cadeira Flexora', 'Pernas'),
+            ('Mesa Flexora', 'Pernas'),
+            ('Elevação Pélvica', 'Pernas'),
+            # Panturrilhas
+            ('Panturrilha em Pé (Gêmeos)', 'Pernas'),
+            ('Panturrilha Sentado (Sóleo)', 'Pernas'),
+            # Ombros
+            ('Desenvolvimento (Halteres)', 'Ombros'),
+            ('Desenvolvimento (Barra)', 'Ombros'),
+            ('Elevação Lateral (Halteres)', 'Ombros'),
+            ('Elevação Lateral (Polia)', 'Ombros'),
+            ('Elevação Frontal (Halteres)', 'Ombros'),
+            ('Crucifixo Invertido (Halteres)', 'Ombros'),
+            ('Crucifixo Invertido (Peck Deck)', 'Ombros'),
+            ('Remada Alta', 'Ombros'),
+            # Bíceps
+            ('Rosca Direta (Barra)', 'Bíceps'),
+            ('Rosca Direta (Barra W)', 'Bíceps'),
+            ('Rosca Alternada (Halteres)', 'Bíceps'),
+            ('Rosca Scott', 'Bíceps'),
+            ('Rosca Concentrada', 'Bíceps'),
+            # Tríceps
+            ('Tríceps Testa (Polia)', 'Tríceps'),
+            ('Tríceps Testa (Barra W)', 'Tríceps'),
+            ('Tríceps Corda (Polia)', 'Tríceps'),
+            ('Mergulho no Banco', 'Tríceps'),
+            ('Tríceps Francês (Halter)', 'Tríceps'),
+            # Abdômen
+            ('Abdominal Supra', 'Abdômen'),
+            ('Abdominal Infra (na paralela)', 'Abdômen'),
+            ('Prancha', 'Abdômen'),
+            ('Elevação de Pernas', 'Abdômen'),
+        ]
+        try:
+            cursor.executemany("INSERT INTO master_exercises (name, muscle_group) VALUES (?, ?)", master_exercise_list)
+        except sqlite3.IntegrityError:
+            # Dados já existem
+            pass
+
+        conn.commit()
+        logging.info("Banco de dados inicializado com sucesso.")
+
+    except sqlite3.Error as e:
+        logging.error(f"Erro no banco de dados durante a inicialização: {e}")
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            conn.close()
+            logging.info("Conexão com o banco de dados fechada.")
 
 def add_user(username, email, password):
     """
