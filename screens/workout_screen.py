@@ -49,6 +49,15 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int):
             pass
         page.go(f"/workout/{user_workout_id}")
 
+    def cancel_changes(e):
+        """Cancela as alterações feitas no modo de edição."""
+        try:
+            page.session.remove("edit_mode")
+            page.session.remove("workout_in_edit")
+        except KeyError:
+            pass
+        page.go(f"/workout/{user_workout_id}")
+
 
     def build_exercise_list():
         """Constrói a lista de exercícios, com drag-and-drop se em modo de edição."""
@@ -75,7 +84,7 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int):
                 moved_item = exercise_list.pop(src_index)
                 exercise_list.insert(dest_index, moved_item)
                 page.session.set("workout_in_edit", edited_data)
-                page.go(f"/workout/{user_workout_id}")
+                page.update()
 
 
         for ex in exercises:
@@ -107,7 +116,7 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int):
                     edited_data = page.session.get("workout_in_edit")
                     edited_data["exercises"] = [item for item in edited_data["exercises"] if item['user_exercise_id'] != user_exercise_id]
                     page.session.set("workout_in_edit", edited_data)
-                    page.go(f"/workout/{user_workout_id}")
+                    page.update()
 
                 action_buttons = [
                     ft.IconButton("swap_horiz", on_click=lambda e, uei=ex['user_exercise_id']: replace_click(e, uei)),
@@ -166,7 +175,7 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int):
     if edit_mode_active:
         app_bar_actions = [
             ft.IconButton("save", on_click=save_changes, icon_color="green"),
-            ft.IconButton("cancel", on_click=lambda e: page.go(f"/workout/{user_workout_id}")),
+            ft.IconButton("cancel", on_click=cancel_changes),
         ]
     else:
         app_bar_actions = [
