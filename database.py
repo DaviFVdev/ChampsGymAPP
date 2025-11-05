@@ -445,3 +445,35 @@ def get_all_master_exercises():
         grouped_exercises[group].append(ex)
 
     return grouped_exercises
+
+def update_workout(user_workout_id, edited_data):
+    """
+    Atualiza uma ficha de treino inteira com base nos dados editados.
+    Isso inclui o título do treino e a lista de exercícios (adicionar, remover, reordenar, atualizar séries).
+    """
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # 1. Atualizar o título do treino
+        new_title = edited_data['details']['title']
+        cursor.execute("UPDATE user_workouts SET title = ? WHERE user_workout_id = ?", (new_title, user_workout_id))
+
+        # 2. Sincronizar os exercícios (delete all and re-insert)
+        # Primeiro, deletamos todos os exercícios associados ao treino
+        cursor.execute("DELETE FROM user_exercises WHERE user_workout_id = ?", (user_workout_id,))
+        # Depois, inserimos todos os exercícios da lista editada na nova ordem
+        for ex in edited_data['exercises']:
+            cursor.execute(
+                "INSERT INTO user_exercises (user_workout_id, master_exercise_id, series) VALUES (?, ?, ?)",
+                (user_workout_id, ex.get('master_exercise_id', ex.get('id')), ex['series']) # 'id' pode ser usado para novos
+            )
+
+        conn.commit()
+
+    except sqlite3.Error as e:
+        print(f"Erro ao atualizar o treino: {e}")
+        conn.rollback()
+    finally:
+        conn.close()

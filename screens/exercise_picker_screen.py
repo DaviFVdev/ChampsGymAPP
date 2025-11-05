@@ -12,16 +12,33 @@ def ExercisePickerScreen(page: ft.Page):
     def select_exercise(e):
         """Callback para quando um exercício é selecionado."""
         selected_master_id = e.control.data
+        selected_exercise_name = e.control.title.value # Pega o nome do ListTile
 
         if user_exercise_id_to_replace:
-            # Modo de substituição
-            replace_exercise_in_workout(user_exercise_id_to_replace, selected_master_id)
+            # Modo de substituição: Atualiza a cópia na sessão
+            edited_data = page.session.get("workout_in_edit")
+            for ex in edited_data["exercises"]:
+                if ex['user_exercise_id'] == user_exercise_id_to_replace:
+                    ex['master_exercise_id'] = selected_master_id
+                    ex['name'] = selected_exercise_name # Atualiza o nome para UI
+                    break
+            page.session.set("workout_in_edit", edited_data)
         else:
-            # Modo de adição
-            add_exercise_to_workout(user_workout_id, selected_master_id)
+            # Modo de adição: Adiciona à cópia na sessão
+            edited_data = page.session.get("workout_in_edit")
+            new_exercise = {
+                # ID temporário negativo para novos exercícios, para evitar conflitos
+                'user_exercise_id': - (len(edited_data["exercises"]) + 1),
+                'master_exercise_id': selected_master_id,
+                'name': selected_exercise_name,
+                'series': '3x10' # Padrão para novos exercícios
+            }
+            edited_data["exercises"].append(new_exercise)
+            page.session.set("workout_in_edit", edited_data)
 
-        # Limpa as variáveis de sessão e volta para a tela de treino
-        page.session.remove("exercise_to_replace")
+        # Limpa a variável de substituição e volta
+        if page.session.contains_key("exercise_to_replace"):
+            page.session.remove("exercise_to_replace")
         page.go(f"/workout/{user_workout_id}")
 
     def go_back(e):
