@@ -97,6 +97,13 @@ def init_db():
         )
         """)
 
+        # --- Schema Migration ---
+        cursor.execute("PRAGMA table_info(users)")
+        columns = [row['name'] for row in cursor.fetchall()]
+        if 'salt' not in columns:
+            logging.info("Adicionando a coluna 'salt' à tabela 'users'.")
+            cursor.execute("ALTER TABLE users ADD COLUMN salt TEXT NOT NULL DEFAULT ''")
+
         # --- Pré-popular a tabela de papéis (roles) ---
         try:
             roles_to_add = [('user',), ('admin',)]
