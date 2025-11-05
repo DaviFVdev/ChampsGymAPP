@@ -14,7 +14,10 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int):
         page.go(f"/workout/{user_workout_id}") # Recarrega a página para refletir o novo modo
 
     def go_back(e):
-        page.session.remove("edit_mode")
+        try:
+            page.session.remove("edit_mode")
+        except KeyError:
+            pass  # A chave não existe, o que é seguro ignorar
         page.go("/home")
 
     def build_exercise_datatable():
