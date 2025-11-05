@@ -14,11 +14,18 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int):
         page.session.set("edit_mode", edit_mode)
 
         if edit_mode:
-            # Carrega os dados originais e armazena uma cópia na sessão
+            # Carrega os dados originais, converte para dicts e armazena na sessão
+            details_row = get_user_workout_by_id(user_workout_id)
+            details_dict = dict(details_row) if details_row else {}
+
+            exercises_rows = get_user_workout_details(user_workout_id)
+            exercises_list = [dict(row) for row in exercises_rows]
+
             original_workout = {
-                "details": get_user_workout_by_id(user_workout_id),
-                "exercises": get_user_workout_details(user_workout_id)
+                "details": details_dict,
+                "exercises": exercises_list
             }
+            # deepcopy não é mais estritamente necessário aqui, mas é uma boa prática
             page.session.set("workout_in_edit", deepcopy(original_workout))
         else:
             # Se sair do modo de edição (ex: clicando no checkmark), salva
