@@ -1,7 +1,7 @@
 import flet as ft
-from database import get_user_workout_details, update_exercise_series, remove_exercise_from_workout
+from database import get_user_workout_details, update_exercise_series, remove_exercise_from_workout, get_user_workout_by_id
 
-def WorkoutScreen(page: ft.Page, user_workout_id: int, workout_title: str):
+def WorkoutScreen(page: ft.Page, user_workout_id: int):
     """
     Tela que exibe e permite a edição de uma ficha de treino específica do usuário.
     """
@@ -9,7 +9,7 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int, workout_title: str):
 
     def toggle_edit_mode(e):
         """Ativa ou desativa o modo de edição."""
-        edit_mode = not page.session.get("edit_mode", False)
+        edit_mode = not page.session.get("edit_mode")
         page.session.set("edit_mode", edit_mode)
         page.go(f"/workout/{user_workout_id}") # Recarrega a página para refletir o novo modo
 
@@ -21,7 +21,7 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int, workout_title: str):
         """Constrói a DataTable com base nos exercícios do workout."""
         exercises = get_user_workout_details(user_workout_id)
         rows = []
-        is_editing = page.session.get("edit_mode", False)
+        is_editing = page.session.get("edit_mode") or False
 
         for ex in exercises:
             series_control = ft.Text(ex['series'])
@@ -67,7 +67,10 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int, workout_title: str):
         )
 
     # --- Layout da Tela ---
-    edit_mode_active = page.session.get("edit_mode", False)
+    workout_data = get_user_workout_by_id(user_workout_id)
+    workout_title = workout_data['title'] if workout_data else "Treino Detalhes"
+
+    edit_mode_active = page.session.get("edit_mode") or False
 
     add_button = ft.ElevatedButton(
         "Adicionar Exercício",

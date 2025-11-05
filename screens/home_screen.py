@@ -16,8 +16,6 @@ def HomeScreen(page: ft.Page):
     def navigate_to_workout(e):
         """Navega para a tela de treino específica."""
         user_workout_id = e.control.data
-        # Armazena o título na sessão para a próxima tela usar
-        page.session.set(f"workout_title_{user_workout_id}", e.control.text)
         page.go(f"/workout/{user_workout_id}")
 
     def logout_clicked(e):

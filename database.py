@@ -25,6 +25,7 @@ def init_db():
         username TEXT NOT NULL UNIQUE,
         email TEXT NOT NULL UNIQUE,
         password_hash TEXT NOT NULL,
+        salt TEXT NOT NULL,
         is_verified INTEGER NOT NULL DEFAULT 0,
         is_active INTEGER NOT NULL DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -187,14 +188,15 @@ def add_user(username, email, password):
         conn.close()
         return False  # Usuário ou e-mail já cadastrado
 
-    # Hash da senha
-    password_hash = hashlib.sha256(password.encode()).hexdigest()
+    # Gerar salt e hashear a senha
+    salt = os.urandom(16).hex()
+    password_hash = hashlib.sha256((password + salt).encode()).hexdigest()
 
     try:
         # Inserir o novo usuário
         cursor.execute(
-            "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
-            (username, email, password_hash)
+            "INSERT INTO users (username, email, password_hash, salt) VALUES (?, ?, ?, ?)",
+            (username, email, password_hash, salt)
         )
         user_id = cursor.lastrowid
 
@@ -240,19 +242,24 @@ def verify_user(identifier, password):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Hash da senha fornecida para comparação
-    password_hash = hashlib.sha256(password.encode()).hexdigest()
-
     cursor.execute(
-        "SELECT user_id, password_hash FROM users WHERE username = ? OR email = ?",
+        "SELECT user_id, password_hash, salt FROM users WHERE username = ? OR email = ?",
         (identifier, identifier)
     )
     user = cursor.fetchone()
-    conn.close()
 
-    if user and user['password_hash'] == password_hash:
+    if not user:
+        conn.close()
+        return None
+
+    # Hash da senha fornecida com o salt do usuário para comparação
+    password_hash = hashlib.sha256((password + user['salt']).encode()).hexdigest()
+
+    if user['password_hash'] == password_hash:
+        conn.close()
         return user['user_id']
 
+    conn.close()
     return None
 
 def get_user_by_id(user_id):
@@ -341,6 +348,15 @@ def get_user_workouts(user_id):
 
     conn.close()
     return workouts
+
+def get_user_workout_by_id(user_workout_id):
+    """Busca os detalhes de uma ficha de treino específica, como o título."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT title FROM user_workouts WHERE user_workout_id = ?", (user_workout_id,))
+    workout = cursor.fetchone()
+    conn.close()
+    return workout
 
 def get_user_workout_details(user_workout_id):
     """Busca os detalhes (exercícios) de uma ficha de treino específica."""
