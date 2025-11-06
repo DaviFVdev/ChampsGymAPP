@@ -383,7 +383,7 @@ def get_user_workout_details(user_workout_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     query = """
-    SELECT ue.user_exercise_id, me.name, ue.series
+    SELECT ue.user_exercise_id, me.name, ue.series, ue.master_exercise_id
     FROM user_exercises ue
     JOIN master_exercises me ON ue.master_exercise_id = me.master_exercise_id
     WHERE ue.user_workout_id = ?
@@ -465,10 +465,17 @@ def update_workout(user_workout_id, edited_data):
         cursor.execute("DELETE FROM user_exercises WHERE user_workout_id = ?", (user_workout_id,))
         # Depois, inserimos todos os exercícios da lista editada na nova ordem
         for ex in edited_data['exercises']:
-            cursor.execute(
-                "INSERT INTO user_exercises (user_workout_id, master_exercise_id, series) VALUES (?, ?, ?)",
-                (user_workout_id, ex.get('master_exercise_id', ex.get('id')), ex['series']) # 'id' pode ser usado para novos
-            )
+            # Garante que estamos pegando o ID correto, seja de um exercício existente ou novo
+            master_id = ex.get('master_exercise_id')
+            if not master_id:
+                # Se for um exercício novo, o ID pode estar em 'id'
+                master_id = ex.get('id')
+
+            if master_id:
+                 cursor.execute(
+                    "INSERT INTO user_exercises (user_workout_id, master_exercise_id, series) VALUES (?, ?, ?)",
+                    (user_workout_id, master_id, ex['series'])
+                )
 
         conn.commit()
 
