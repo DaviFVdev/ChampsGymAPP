@@ -96,7 +96,7 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int):
                 series_control = ft.TextField(
                     value=str(ex['series']),
                     on_submit=create_series_change_handler(ex['user_exercise_id']),
-                    width=100
+                    width=150
                 ) if is_editing else ft.Text(ex['series'])
 
                 action_buttons = []
