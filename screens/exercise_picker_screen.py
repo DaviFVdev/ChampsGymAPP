@@ -43,7 +43,9 @@ def ExercisePickerScreen(page: ft.Page):
 
     def go_back(e):
         """Volta para a tela de treino sem fazer alterações."""
-        page.session.remove("exercise_to_replace")
+        # Garante que a chave só será removida se existir
+        if page.session.get("exercise_to_replace"):
+            page.session.remove("exercise_to_replace")
         page.go(f"/workout/{user_workout_id}")
 
     # --- Layout da Tela ---

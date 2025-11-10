@@ -134,9 +134,12 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int):
                 ]))
 
             return ft.DataTable(
-                columns=[ft.DataColumn(ft.Text("Exercício")), ft.DataColumn(ft.Text("Séries"))],
+                columns=[
+                    ft.DataColumn(ft.Text("Exercício"), expand=True),
+                    ft.DataColumn(ft.Text("Séries"), numeric=True),
+                ],
                 rows=rows,
-                expand=True
+                column_spacing=20,
             )
 
         # Atualiza o título e as ações
