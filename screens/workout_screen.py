@@ -129,17 +129,18 @@ def WorkoutScreen(page: ft.Page, user_workout_id: int):
                     ]
 
                 rows.append(ft.DataRow(cells=[
-                    ft.DataCell(ft.Row([ft.Text(ex['name'])] + action_buttons)),
+                    ft.DataCell(ft.Row([ft.Text(ex['name'], expand=True)] + action_buttons)),
                     ft.DataCell(series_control),
                 ]))
 
             return ft.DataTable(
                 columns=[
-                    ft.DataColumn(ft.Text("Exercício"), expand=True),
+                    ft.DataColumn(ft.Text("Exercício")),
                     ft.DataColumn(ft.Text("Séries"), numeric=True),
                 ],
                 rows=rows,
                 column_spacing=20,
+                expand=True,
             )
 
         # Atualiza o título e as ações
